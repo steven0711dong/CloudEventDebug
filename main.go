@@ -4,50 +4,43 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 )
 
-var cl cloudevents.Client
-var ctx context.Context
+/*
+Example Output:
+☁️  cloudevents.Event
+Validation: valid
+Context Attributes,
+  specversion: 1.0
+  type: dev.knative.eventing.samples.heartbeat
+  source: https://knative.dev/eventing-contrib/cmd/heartbeats/#event-test/mypod
+  id: 2b72d7bf-c38f-4a98-a433-608fbcdd2596
+  time: 2019-10-18T15:23:20.809775386Z
+  contenttype: application/json
+Extensions,
+  beats: true
+  heart: yes
+  the: 42
+Data,
+  {
+    "id": 2,
+    "label": ""
+  }
+*/
 
-func main() {
-	ctx = cloudevents.ContextWithTarget(context.Background(), os.Getenv("SinkAdd"))
-	fmt.Println(os.Getenv("SinkAdd"))
-	p, err := cloudevents.NewHTTP()
-	if err != nil {
-		log.Fatalf("failed to create protocol: %s", err.Error())
-	}
-	c, err := cloudevents.NewClient(p, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
-	if err != nil {
-		log.Fatalf("failed to create client, %v", err)
-	}
-	cl = c
-	for i := 0; i < 300; i++ {
-		go as(i)
-	}
-	time.Sleep(30 * time.Second)
-
+func display(event cloudevents.Event) {
+	time.Sleep(10 * time.Second)
+	fmt.Printf("☁️  cloudevents.Event\n%s", event.String())
 }
 
-func as(c int) {
-	e := cloudevents.NewEvent()
-	e.SetID("partition:0/offset:1")
-	e.SetType("com.cloudevents.sample.sent")
-	e.SetSource("io#sample")
-	_ = e.SetData(cloudevents.ApplicationJSON, map[string]interface{}{
-		"id":      1,
-		"message": "Hello, World!",
-	})
-	res := cl.Send(ctx, e)
-	if cloudevents.IsUndelivered(res) {
-		fmt.Printf("Failed to send: %+v", res)
-	} else {
-		var httpResult *cehttp.Result
-		cloudevents.ResultAs(res, &httpResult)
-		log.Printf("Sent with status code %d", httpResult.StatusCode)
+func main() {
+	c, err := cloudevents.NewDefaultClient()
+	if err != nil {
+		log.Fatal("Failed to create client, ", err)
 	}
+
+	log.Fatal(c.StartReceiver(context.Background(), display))
 }
